@@ -27,13 +27,13 @@ struct ProgramOptions {
     // Probability of using the current global best as a source solution
     double gbest_as_source_prob_ = 0.01;
 
-    int32_t iterations_ = 5 * 1000;
+    int32_t iterations_ = 12000;
 
     int32_t local_search_ = 1;  // 0 - no local search, 1 - default LS
 
     uint32_t ls_cand_list_size_ = 20u;  // #nodes used by the LS heuristics
 
-    uint32_t min_new_edges_ = 8;
+    uint32_t min_new_edges_ = 16; // target_changes
 
     // Prob. that a solution will contain only edges with the
     // highest pheromone levels. Used to calculate pheromone trail limits.

@@ -2647,7 +2647,7 @@ run_raco(const ProblemInstance &problem,
 
     auto best_ant = make_unique<Ant>(start_route, initial_cost);
 
-    vector<Ant> ants(ants_count);
+    vector<Ant> ants(4 * ants_count);
     for (auto &ant : ants) {
         ant = *best_ant;
     }
@@ -2711,7 +2711,12 @@ run_raco(const ProblemInstance &problem,
             // the same path -- i.e. if we run the program with the same PRNG
             // seed (--seed X) then we get exactly the same results.
             #pragma omp for schedule(static, 1) reduction(+ : loop_count, relocation_time, select_next_time, construction_time, ls_time, ant_sol_updates, local_source_sol_updates, total_new_edges)
-            for (uint32_t ant_idx = 0; ant_idx < ants.size(); ++ant_idx) {
+            
+            uint32_t numAnt = ants_count;
+            if (iteration > iterations / 3) numAnt = numAnt * 2;
+            if (iteration > iterations * 2 / 3) numAnt = numAnt * 2;
+
+            for (uint32_t ant_idx = 0; ant_idx < numAnt; ++ant_idx) {
                 const auto target_new_edges = min_new_edges;
 
                 auto &ant = ants[ant_idx];
@@ -3304,6 +3309,7 @@ int main(int argc, char *argv[]) {
             if (args.ants_count_ == 0) {
                 auto r = 4 * sqrt(problem.dimension_);
                 args.ants_count_ = static_cast<uint32_t>(lround(r / 64) * 64);
+                args.ants_count_ = (args.ants_count_ + args.ants_count_ * 2 + args.ants_count_ * 4) / 3;
             }
         } else if (args.algorithm_ == "mmas") {
             alg = run_mmas<CandListModel>;
