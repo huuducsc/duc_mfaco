@@ -2441,7 +2441,7 @@ run_synthetic_smfaco(const ProblemInstance &problem,
             // the same path -- i.e. if we run the program with the same PRNG
             // seed (--seed X) then we get exactly the same results.
             #pragma omp for schedule(static, 1) reduction(+ : ant_sol_updates, local_source_sol_updates, total_new_edges)
-            for (uint32_t ant_idx = 0; ant_idx < ants.size(); ++ant_idx) {
+            for (uint32_t ant_idx = 0; ant_idx < numAnt; ++ant_idx) {
                 const auto target_new_edges = opt.min_new_edges_;
 
                 auto &ant = ants[ant_idx];
