@@ -64,6 +64,7 @@ struct MatrixPheromone {
         if (is_symmetric_) {
             trails_[to * dimension_ + from] = value;
         }
+        std::cout << "pheromone "<<trails_[from * dimension_ + to] << '\n';
     }
 };
 
