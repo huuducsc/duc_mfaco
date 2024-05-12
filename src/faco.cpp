@@ -3935,6 +3935,13 @@ int main(int argc, char *argv[]) {
                 auto r = 4 * sqrt(problem.dimension_);
                 args.ants_count_ = static_cast<uint32_t>(lround(r / 64) * 64);
             }
+        } else if (args.algorithm_ == "first_new_improved_mfaco") {
+            alg = run_first_new_improved_mfaco;
+
+            if (args.ants_count_ == 0) {
+                auto r = 4 * sqrt(problem.dimension_);
+                args.ants_count_ = static_cast<uint32_t>(lround(r / 64) * 64);
+            }
         }
 
         dump(args, experiment_record["args"]);
