@@ -1807,6 +1807,85 @@ run_smfaco(const ProblemInstance &problem,
 
     return unique_ptr<Solution>(dynamic_cast<Solution*>(best_ant.release()));
 }
+uint32_t getbit(uint32_t n, uint32_t k) {
+    return (n >> k) & 1;
+}
+
+Route adjust_route(Route &route, uint32_t start_node) {
+    double dp[2002][12];
+    for (uint32_t mask = 0; mask < (1<<10); mask++)
+        for (uint32_t i = 0; i < 10; i++) 
+            dp[mask][i] = 1e18;
+    vector <uint32_t> node_list;
+    double initc = route.cost_;
+    auto curr = start_node;
+    for (uint32_t i = 0; i < 10; i++) {
+        auto next_node = route.get_succ(curr);
+        node_list.push_back(next_node); 
+        initc -= route.cost_fn_(curr, next_node);
+        curr = next_node;
+    }
+    auto end_node = route.get_succ(curr);
+    initc -= route.cost_fn_(curr, end_node);
+    for (uint32_t i = 0; i < 10; i++) {
+        dp[1 << i][i] = initc + route.cost_fn_(start_node, node_list[i]) + route.cost_fn_(node_list[i], end_node);
+    }
+    for (uint32_t mask = 1; mask < (1<<10); mask++) 
+        for (uint32_t i = 0; i < 10; i++) {
+            if (getbit(mask, i) == 0) continue;
+            if (dp[mask][i] < 1e18) continue;
+            for (uint32_t j = 0; j < 10; j++) {
+                if (getbit(mask, j) == 0 || j == i) continue;
+                double new_cost = dp[mask ^ (1 << i)][j] - route.cost_fn_(node_list[j], end_node) + route.cost_fn_(node_list[j], node_list[i]) + route.cost_fn_(node_list[i], end_node);
+                dp[mask][i] = min(dp[mask][i], new_cost);
+            }
+        }
+    vector <uint32_t> result_nodes;
+    uint32_t mask = (1 << 10) - 1;
+    uint32_t sel = 9;
+    double min_cost = dp[mask][9];
+    for (uint32_t i = 0; i < 10; i++)
+        if (min_cost > dp[mask][i]) {
+            sel = i;
+            min_cost = dp[mask][i];
+        }
+    for (uint32_t i = 0; i < 10; i++) {
+        bool ok = false;
+        for (auto v: node_list)
+            if(v == node_list[sel]) ok = true;
+        if (!ok) cout<<"cccc\n";
+        for (auto v: result_nodes)
+            if(v == node_list[sel]) cout<<"gggg\n";
+        result_nodes.push_back(node_list[sel]);
+        for (uint32_t j = 0; j < 10; j++) {
+            if (getbit(mask, j) == 0 || j == sel) continue;
+            if (dp[mask][sel] == dp[mask ^ (1 << sel)][j] - route.cost_fn_(node_list[j], end_node) + route.cost_fn_(node_list[j], node_list[sel]) + route.cost_fn_(node_list[sel], end_node)) {
+                mask = mask ^ (1 << sel);
+                sel = j;
+                break;
+            }
+        }
+    }
+    double init_cost = route.cost_;
+    
+    curr = start_node;
+    for (uint32_t i = 0; i < 10; i++) {
+        auto next_node = route.get_succ(curr);
+        auto new_node = result_nodes[10 - 1 - i];
+        route.relocate_node(curr, new_node);
+        curr = new_node;
+    }
+    curr = start_node;
+     for (uint32_t i = 0; i < 10; i++) {
+        auto next_node = route.get_succ(curr);
+        if (next_node != result_nodes[10 - 1 - i]) cout<<"llll\n";
+        curr = next_node;
+    }
+
+    if (route.cost_ != min_cost) cout<<"mismatch\n";
+    if (route.cost_ > init_cost) cout <<"Bad solution\n";
+    return route;
+}
 
 template<typename ComputationsLog_t>
 std::unique_ptr<Solution> 
@@ -1887,8 +1966,8 @@ run_force_mfaco(const ProblemInstance &problem,
     int32_t local_source_sol_updates = 0;
     int32_t total_new_edges = 0;
     uint32_t total_visited = 0;
-    vector <pair <double, uint32_t> > vect;
-    vect.resize(dimension);
+    //vector <pair <double, uint32_t> > vect;
+    //vect.resize(dimension);
 
     #pragma omp parallel default(shared)
     {
@@ -1917,6 +1996,8 @@ run_force_mfaco(const ProblemInstance &problem,
             //Mask visited(dimension);
             Bitmask visited(dimension);
 
+
+            auto target_new_edges = opt.min_new_edges_;
             // Changing schedule from "static" to "dynamic" can speed up
             // computations a bit, however it introduces non-determinism due to
             // threads scheduling. With "static" the computations always follow
@@ -1924,14 +2005,13 @@ run_force_mfaco(const ProblemInstance &problem,
             // seed (--seed X) then we get exactly the same results.
             #pragma omp for schedule(static, 1) reduction(+ : ant_sol_updates, local_source_sol_updates, total_new_edges)
             for (uint32_t ant_idx = 0; ant_idx < ants.size(); ++ant_idx) {
-                const auto target_new_edges = opt.min_new_edges_;
 
                 auto &ant = ants[ant_idx];
                 // ant.initialize(dimension);
                 Route route { local_source };  // We use "external" route and only copy it back to ant
 
-                //auto start_node = get_rng().next_uint32(dimension);
-                auto start_node = vect[dimension - 1 - get_rng().next_uint32(dimension / 10)].second;
+                auto start_node = get_rng().next_uint32(dimension);
+                //auto start_node = vect[dimension - 1 - get_rng().next_uint32(dimension / 10)].second;
                 // ant.visit(start_node);
                 visited.clear();
                 visited.set_bit(start_node);
@@ -1947,6 +2027,9 @@ run_force_mfaco(const ProblemInstance &problem,
                 uint32_t relocate_count = 0;
                 while (new_edges < target_new_edges && visited_count < dimension) {
                     auto curr = curr_node;
+
+                    if (new_edges == 0) 
+                        visited.set_bit(route.get_succ(curr));
                     
                     ++visited_count;
                     auto sel = select_next_node(pheromone, heuristic,
@@ -1955,7 +2038,9 @@ run_force_mfaco(const ProblemInstance &problem,
                                                 problem.get_backup_neighbors(curr, cl_size, bl_size),
                                                 curr,
                                                 visited);
-                    
+                    if (new_edges == 0) 
+                        visited.clear_bit(route.get_succ(curr));
+
                     const auto sel_pred = route.get_pred(sel);
 
                     // ant.visit(sel);
@@ -1984,6 +2069,8 @@ run_force_mfaco(const ProblemInstance &problem,
                     curr_node = sel;
                 }
                 total_visited += visited_count;
+
+                Route new_route = adjust_route(route, start_node);
 
                 if (opt.count_new_edges_) {  // How many new edges are in the new sol. actually?
                     total_new_edges += count_diff_edges(route, local_source);
@@ -2061,12 +2148,12 @@ run_force_mfaco(const ProblemInstance &problem,
 
                 source_solution->update(update_ant.route_, update_ant.cost_);
 
-                for (uint32_t i = 0 ; i < dimension; i++) {
+                /*for (uint32_t i = 0 ; i < dimension; i++) {
                     auto u = source_solution->route_[i];
                     auto v = i < dimension - 1 ? source_solution->route_[i + 1] : source_solution->route_[0];
                     vect[i] = {pheromone.get(u, v), u};
                 }
-                sort(vect.begin(), vect.end());
+                sort(vect.begin(), vect.end());*/
             }
 
             iteration++;
@@ -2218,8 +2305,10 @@ run_first_new_edge_mfaco(const ProblemInstance &problem,
 
                 while (new_edges < target_new_edges && visited_count < dimension) {
                     auto curr = curr_node;
-                    if (new_edges == 0) 
-                        visited.set_bit(route.get_succ(curr));
+                    if (new_edges == 0) {
+                        visited.set_bit(local_source.get_succ(curr));
+                        visited.set_bit(local_source.get_pred(curr));
+                    }
                     auto sel = select_next_node(pheromone, heuristic,
                                                 problem.get_nearest_neighbors(curr, cl_size),
                                                 nn_product_cache,
@@ -2228,15 +2317,19 @@ run_first_new_edge_mfaco(const ProblemInstance &problem,
                                                 visited);
 
                     const auto sel_pred = route.get_pred(sel);
-                    if (new_edges == 0)
-                        visited.clear_bit(route.get_succ(curr));
+                    if (new_edges == 0) {
+                        visited.clear_bit(local_source.get_succ(curr));
+                        visited.clear_bit(local_source.get_pred(curr));
+                    }
                     // ant.visit(sel);
                     visited.set_bit(sel);
                     ++visited_count;
                     route.relocate_node(curr, sel);  // Place sel node just after curr node
 
                     assert(route.get_succ(curr) == sel);  // We should have (curr, sel) edge
-
+                    if (visited_count == 2 && local_source.contains_edge(curr, sel)) {
+                        cout<<"bbbb\n";
+                    }
                     if (!local_source.contains_edge(curr, sel)) {
                         /*
                         For simplicity and efficiency, we are looking only at
@@ -2248,6 +2341,7 @@ run_first_new_edge_mfaco(const ProblemInstance &problem,
                         number can be much smaller.
                         */
                         new_edges += 1;
+                        //if (new_edges == 1 && visited_count != 1) cout<<"zzzzz "<<visited_count<<"\n";
 
                         if (!contains(ls_checklist, curr)) { ls_checklist.push_back(curr); }
                         if (!contains(ls_checklist, sel)) { ls_checklist.push_back(sel); }
@@ -2431,8 +2525,8 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
     int32_t local_source_sol_updates = 0;
     int32_t total_new_edges = 0;
     uint32_t total_visited = 0;
-    vector <pair <double, uint32_t> > vect;
-    vect.resize(dimension);
+    //vector <pair <double, uint32_t> > vect;
+    //vect.resize(dimension);
     #pragma omp parallel default(shared)
     {
         // Endpoints of new edges (not present in source_route) are inserted
@@ -2472,8 +2566,8 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
                 // ant.initialize(dimension);
                 Route route { local_source };  // We use "external" route and only copy it back to ant
 
-                //auto start_node = get_rng().next_uint32(dimension);
-                auto start_node = vect[dimension - 1 - get_rng().next_uint32(dimension / 10)].second;
+                auto start_node = get_rng().next_uint32(dimension);
+                //auto start_node = vect[dimension - 1 - get_rng().next_uint32(dimension / 10)].second;
                 // ant.visit(start_node);
                 visited.clear();
                 visited.set_bit(start_node);
@@ -2489,8 +2583,24 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
 
                 while (new_edges < target_new_edges && visited_count < dimension) {
                     auto curr = curr_node;
-                    if (new_edges == 0) 
-                        visited.set_bit(route.get_succ(curr));
+                    if (new_edges == 0) {
+                        visited.set_bit(local_source.get_succ(curr));
+                        visited.set_bit(local_source.get_pred(curr));
+                    }
+                    double q = get_rng().next_float();
+                    bool zz = false;
+                    bool yy = false;
+                    if (q < 0.5) {
+                        if (new_edges > 0 && !visited.is_set(local_source.get_succ(curr))) {
+                            zz = true;
+                            visited.set_bit(local_source.get_succ(curr));
+                        }
+
+                        if (new_edges > 0 && !visited.is_set(local_source.get_pred(curr))) {
+                            yy = true;
+                            visited.set_bit(local_source.get_pred(curr));
+                        }
+                    }
                     auto sel = select_next_node(pheromone, heuristic,
                                                 problem.get_nearest_neighbors(curr, cl_size),
                                                 nn_product_cache,
@@ -2499,15 +2609,24 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
                                                 visited);
 
                     const auto sel_pred = route.get_pred(sel);
-                    if (new_edges == 0)
-                        visited.clear_bit(route.get_succ(curr));
+                    if (new_edges == 0) {
+                        visited.clear_bit(local_source.get_succ(curr));
+                        visited.clear_bit(local_source.get_pred(curr));
+                    }
+
+                    if (zz) {
+                        visited.clear_bit(local_source.get_succ(curr));
+                    }
+                    if (yy) {
+                        visited.clear_bit(local_source.get_pred(curr));
+                    }
                     // ant.visit(sel);
                     visited.set_bit(sel);
                     ++visited_count;
                     route.relocate_node(curr, sel);  // Place sel node just after curr node
 
                     assert(route.get_succ(curr) == sel);  // We should have (curr, sel) edge
-
+                    
                     if (!local_source.contains_edge(curr, sel)) {
                         /*
                         For simplicity and efficiency, we are looking only at
@@ -2519,6 +2638,7 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
                         number can be much smaller.
                         */
                         new_edges += 1;
+                        if (new_edges == 1 && visited_count != 2) cout<<"zzzzz "<<visited_count<<"\n";
 
                         if (!contains(ls_checklist, curr)) { ls_checklist.push_back(curr); }
                         if (!contains(ls_checklist, sel)) { ls_checklist.push_back(sel); }
@@ -2604,12 +2724,12 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
 
                 source_solution->update(update_ant.route_, update_ant.cost_);
                 
-                for (uint32_t i = 0 ; i < dimension; i++) {
+                /*for (uint32_t i = 0 ; i < dimension; i++) {
                     auto u = source_solution->route_[i];
                     auto v = i < dimension - 1 ? source_solution->route_[i + 1] : source_solution->route_[0];
                     vect[i] = {pheromone.get(u, v), u};
                 }
-                sort(vect.begin(), vect.end());
+                sort(vect.begin(), vect.end());*/
             }
             iteration++;
         }
@@ -2622,6 +2742,8 @@ run_first_new_improved_mfaco(const ProblemInstance &problem,
 
     return unique_ptr<Solution>(dynamic_cast<Solution*>(best_ant.release()));
 }
+
+
 
 template<typename ComputationsLog_t>
 std::unique_ptr<Solution> 
