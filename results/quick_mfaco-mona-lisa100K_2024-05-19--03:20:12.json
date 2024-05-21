@@ -1,0 +1,61 @@
+{
+ "args": {
+  "alg": "quick_mfaco",
+  "ants": 1280,
+  "backup list size": 64,
+  "beta": 1.0,
+  "cand list size": 16,
+  "count new edges": 0,
+  "gbest as source prob": 0.01,
+  "id": "default",
+  "iterations": 12000,
+  "keep better ant sol": 1,
+  "local search": 1,
+  "ls cand list size": 20,
+  "min new edges": 4,
+  "p best": 0.1,
+  "picture": true,
+  "problem": "large_instances/mona-lisa100K.tsp",
+  "repeat": 1,
+  "results dir": "results",
+  "rho": 0.5,
+  "seed": 3404660825,
+  "source sol local update": 1,
+  "threads": 10
+ },
+ "executions": [
+  {
+   "ants solutions updates": 1280,
+   "average visited": 0.0004921223958333333,
+   "best sol cost recorded every ith iter": 1,
+   "best sol cost times": [
+    0.956815
+   ],
+   "best sol cost values": [
+    5460697.0
+   ],
+   "execution time": 5.319210587000001,
+   "final cost": 5460697.0,
+   "final error": -5.148213922186996,
+   "finished_at": "2024-05-19--03:20:12",
+   "initial sol cost": 5855960.0,
+   "initial solutions build time": 3.8662412730000004,
+   "local source solutions updates": 0,
+   "pher_deposition_time": 0.002788109000903205,
+   "sol cost mean recorded every ith iter": 20,
+   "sol cost mean values": [],
+   "sol cost stdev recorded every ith iter": 20,
+   "sol cost stdev values": [],
+   "started_at": "2024-05-19--03:20:07",
+   "total new edges": 0
+  }
+ ],
+ "nn and backup lists calc time": 0.725431088,
+ "trial max cost": 5460697,
+ "trial max error": -5.148213922186996,
+ "trial mean cost": 5460697.0,
+ "trial mean error": -5.148213922186996,
+ "trial min cost": 5460697,
+ "trial min error": -5.148213922186996,
+ "trial time": 5.319305655
+}
