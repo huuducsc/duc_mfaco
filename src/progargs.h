@@ -27,7 +27,7 @@ struct ProgramOptions {
     // Probability of using the current global best as a source solution
     double gbest_as_source_prob_ = 0.01;
 
-    int32_t iterations_ = 12000;
+    int32_t iterations_ = 6000;
 
     int32_t local_search_ = 1;  // 0 - no local search, 1 - default LS
 
@@ -68,7 +68,7 @@ struct ProgramOptions {
 
     // Modified FACO -- should the actual # of new edges in the constructed
     // solutions be checked?
-    int32_t count_new_edges_ = 1;
+    int32_t count_new_edges_ = 0;
 
 
 
